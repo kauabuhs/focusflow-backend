@@ -10,22 +10,90 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
-// Exemplo: Modelo de Tarefas para o FocusFlow
-model Task {
-  id        Int     @id @default(autoincrement())
-  title     String
-  description String?
-  completed Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// Representa a entidade central do sistema.
+model Usuario {
+  id           String   @id @default(uuid())
+  nome         String
+  email        String   @unique
+  senha        String
+  criadoEm     DateTime @default(now())
+
+  tarefas      Tarefa[]
+  projetos     Projeto[]
+  sessoesFoco  SessaoFoco[]
 }
 
-// Você pode adicionar mais modelos aqui
-// model User {
-//   id    Int     @id @default(autoincrement())
-//   email String  @unique
-//   name  String?
-// }
+// Agrupar tarefas em um contexto maior (tipo "workspace leve").
+model Projeto {
+  id        String   @id @default(uuid())
+  nome      String
+  usuarioId String
+  criadoEm  DateTime @default(now())
+
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+  tarefas   Tarefa[]
+}
+
+// Unidade principal de trabalho do sistema.
+model Tarefa {
+  id           String        @id @default(uuid())
+  titulo       String
+  descricao    String?
+  status       StatusTarefa  @default(PENDENTE)
+  prioridade   Int           @default(1)
+
+  usuarioId    String
+  projetoId    String?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  usuario      Usuario  @relation(fields: [usuarioId], references: [id])
+  projeto      Projeto? @relation(fields: [projetoId], references: [id])
+
+  tags         TarefaTag[]
+  sessoesFoco  SessaoFoco[]
+}
+
+// Classificação flexível de tarefas.
+model Tag {
+  id     String @id @default(uuid())
+  nome   String
+
+  tarefas TarefaTag[]
+}
+
+// Tabela de ligação (N:N).
+model TarefaTag {
+  tarefaId String
+  tagId    String
+
+  tarefa Tarefa @relation(fields: [tarefaId], references: [id])
+  tag    Tag    @relation(fields: [tagId], references: [id])
+
+  @@id([tarefaId, tagId])
+}
+
+// Registrar períodos reais de foco.
+model SessaoFoco {
+  id         String   @id @default(uuid())
+  inicio     DateTime
+  fim        DateTime?
+  duracao    Int // em segundos
+
+  usuarioId  String
+  tarefaId   String?
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  tarefa  Tarefa? @relation(fields: [tarefaId], references: [id])
+}
+
+// Padronizar estados da tarefa.
+enum StatusTarefa {
+  PENDENTE
+  EM_ANDAMENTO
+  CONCLUIDA
+}
+
